@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:BitChat.Bot.ViewModels"
+        x:Class="BitChat.Bot.Views.MainWindow"
+        Title="BitChat Bot" Width="700" Height="600"
+        x:DataType="vm:MainViewModel">
+
+  <Grid RowDefinitions="Auto,*" Margin="12">
+    <StackPanel Spacing="8" Grid.Row="0" Margin="0,0,0,12">
+      <TextBlock Text="BitChat Bot" FontSize="20" FontWeight="Bold"/>
+      <Border Background="#F5F5F5" Padding="8" CornerRadius="4">
+        <StackPanel Spacing="4">
+          <TextBlock Text="{Binding Bot.Npub}" FontSize="11" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding Bot.NpubHex}" FontSize="10" Opacity="0.7"/>
+          <TextBlock Text="{Binding Bot.Status}" FontWeight="Bold" Foreground="#2196F3"/>
+        </StackPanel>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBox Text="{Binding Bot.RecipientPubkey}" Width="320" Watermark="Recipient pubkey hex or npub"/>
+        <TextBox Text="{Binding Bot.ResponseTemplate}" Width="160" Watermark="Response template"/>
+        <CheckBox IsChecked="{Binding Bot.AutoReply}">Auto-reply</CheckBox>
+        <Button Command="{Binding Bot.ConnectCommand}" Content="{Binding Bot.ConnectButtonText}"
+                Width="100" Background="#2196F3" Foreground="White"/>
+      </StackPanel>
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1">
+      <TextBlock Text="{Binding Bot.Logs}" FontFamily="Cascadia Code,Consolas,monospace" FontSize="11"/>
+    </ScrollViewer>
+  </Grid>
+</Window>

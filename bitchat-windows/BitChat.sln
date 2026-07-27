@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChat.Core", "BitChat.Core\BitChat.Core.csproj", "{8ACA4232-3D5F-4D4E-B22E-A9D984696872}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChat.App", "BitChat.App\BitChat.App.csproj", "{1FAEF73D-10DF-456F-89BE-59752421B1AB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChat.Bot", "BitChat.Bot\BitChat.Bot.csproj", "{4114213E-08F1-4939-B4FC-73EAB027867F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8ACA4232-3D5F-4D4E-B22E-A9D984696872}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8ACA4232-3D5F-4D4E-B22E-A9D984696872}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8ACA4232-3D5F-4D4E-B22E-A9D984696872}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8ACA4232-3D5F-4D4E-B22E-A9D984696872}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FAEF73D-10DF-456F-89BE-59752421B1AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FAEF73D-10DF-456F-89BE-59752421B1AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FAEF73D-10DF-456F-89BE-59752421B1AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FAEF73D-10DF-456F-89BE-59752421B1AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4114213E-08F1-4939-B4FC-73EAB027867F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4114213E-08F1-4939-B4FC-73EAB027867F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4114213E-08F1-4939-B4FC-73EAB027867F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4114213E-08F1-4939-B4FC-73EAB027867F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
