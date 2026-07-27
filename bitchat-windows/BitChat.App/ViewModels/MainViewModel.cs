@@ -29,6 +29,7 @@ public partial class MainViewModel : ViewModelBase
 
     private readonly string[] _relayUrls =
     [
+        "ws://localhost:4869",
         "wss://relay.damus.io",
         "wss://nos.lol",
         "wss://relay.primal.net",
@@ -56,11 +57,8 @@ public partial class MainViewModel : ViewModelBase
                 Time = msg.Timestamp.ToString("HH:mm"),
                 IsSelf = false
             });
-            foreach (var p in _engine.KnownPeers)
-            {
-                if (!RecipientPubkey.Contains(p))
-                    RecipientPubkey = p;
-            }
+            if (string.IsNullOrWhiteSpace(RecipientPubkey))
+                RecipientPubkey = msg.SenderPubkey;
         };
     }
 
