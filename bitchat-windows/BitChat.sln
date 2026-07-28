@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChat.App", "BitChat.App\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChat.Bot", "BitChat.Bot\BitChat.Bot.csproj", "{4114213E-08F1-4939-B4FC-73EAB027867F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChat.Core.Tests", "BitChat.Core.Tests\BitChat.Core.Tests.csproj", "{71CF7292-78B5-45C0-A697-C149CCBF28C9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,9 @@ Global
 		{4114213E-08F1-4939-B4FC-73EAB027867F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4114213E-08F1-4939-B4FC-73EAB027867F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4114213E-08F1-4939-B4FC-73EAB027867F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{71CF7292-78B5-45C0-A697-C149CCBF28C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{71CF7292-78B5-45C0-A697-C149CCBF28C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{71CF7292-78B5-45C0-A697-C149CCBF28C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{71CF7292-78B5-45C0-A697-C149CCBF28C9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

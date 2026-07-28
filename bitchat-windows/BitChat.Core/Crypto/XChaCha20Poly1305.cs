@@ -49,8 +49,9 @@ public static class XChaCha20Poly1305
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce)
     {
-        Span<byte> polyKey = stackalloc byte[32];
-        ChaCha20Block(key, 0, nonce, polyKey);
+        Span<byte> block = stackalloc byte[64];
+        ChaCha20Block(key, 0, nonce, block);
+        Span<byte> polyKey = block[..32];
 
         Span<byte> keystream = stackalloc byte[64];
         uint counter = 1;
@@ -77,8 +78,9 @@ public static class XChaCha20Poly1305
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce)
     {
-        Span<byte> polyKey = stackalloc byte[32];
-        ChaCha20Block(key, 0, nonce, polyKey);
+        Span<byte> block = stackalloc byte[64];
+        ChaCha20Block(key, 0, nonce, block);
+        Span<byte> polyKey = block[..32];
 
         var computedTag = (stackalloc byte[16]);
         ComputePoly1305Tag(computedTag, ReadOnlySpan<byte>.Empty, ciphertext, polyKey);
