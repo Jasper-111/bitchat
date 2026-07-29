@@ -22,28 +22,22 @@ public class TransportIntegrationTests : IDisposable
 
     private string RelayUrl() => $"ws://localhost:{_relay.Port}";
 
-    private static async Task<T?> WaitFor<T>(Func<T?> check, int timeoutMs = 5000)
-        where T : class
+    private static async Task<T> WaitSignalAsync<T>(Action<Action<T>> subscribe, int timeoutMs = 8000)
     {
-        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-        while (DateTime.UtcNow < deadline)
-        {
-            var result = check();
-            if (result != null) return result;
-            await Task.Delay(50);
-        }
-        return null;
+        var tcs = new TaskCompletionSource<T>();
+        using var cts = new CancellationTokenSource(timeoutMs);
+        using var reg = cts.Token.Register(() => tcs.TrySetCanceled(cts.Token));
+        subscribe(result => tcs.TrySetResult(result));
+        return await tcs.Task;
     }
 
-    private static async Task<bool> WaitForTrue(Func<bool> check, int timeoutMs = 5000)
+    private static async Task WaitSignalAsync(Action<Action> subscribe, int timeoutMs = 8000)
     {
-        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-        while (DateTime.UtcNow < deadline)
-        {
-            if (check()) return true;
-            await Task.Delay(50);
-        }
-        return false;
+        var tcs = new TaskCompletionSource();
+        using var cts = new CancellationTokenSource(timeoutMs);
+        using var reg = cts.Token.Register(() => tcs.TrySetCanceled(cts.Token));
+        subscribe(() => tcs.TrySetResult());
+        await tcs.Task;
     }
 
     [Fact]
@@ -55,17 +49,18 @@ public class TransportIntegrationTests : IDisposable
         var alice = new ChatEngine(aliceId);
         var bob = new ChatEngine(bobId);
 
-        Message? received = null;
-        bob.OnMessageReceived += msg => received = msg;
+        Message received = null!;
+        var signal = WaitSignalAsync<Message>(onResult =>
+            bob.OnMessageReceived += msg => onResult(msg));
 
         await alice.ConnectAsync([RelayUrl()]);
         await bob.ConnectAsync([RelayUrl()]);
 
         await alice.SendMessageAsync(bobId.PublicKeyHex, "Hello from Alice");
 
-        var found = await WaitFor(() => received);
-        Assert.NotNull(found);
-        Assert.Equal("Hello from Alice", found.Content);
+        received = await signal;
+        Assert.NotNull(received);
+        Assert.Equal("Hello from Alice", received.Content);
 
         await Task.WhenAll(alice.DisconnectAsync(), bob.DisconnectAsync());
     }
@@ -79,8 +74,8 @@ public class TransportIntegrationTests : IDisposable
         var alice = new ChatEngine(aliceId);
         var bob = new ChatEngine(bobId);
 
-        Message? aliceReceived = null;
-        alice.OnMessageReceived += msg => aliceReceived = msg;
+        var signal = WaitSignalAsync<Message>(onResult =>
+            alice.OnMessageReceived += msg => onResult(msg));
 
         bob.OnMessageReceived += async msg =>
         {
@@ -92,7 +87,7 @@ public class TransportIntegrationTests : IDisposable
 
         await alice.SendMessageAsync(bobId.PublicKeyHex, "ping");
 
-        var found = await WaitFor(() => aliceReceived, 10000);
+        var found = await signal;
         Assert.NotNull(found);
         Assert.Equal("Echo: ping", found.Content);
 
@@ -108,17 +103,15 @@ public class TransportIntegrationTests : IDisposable
         var alice = new ChatEngine(aliceId);
         var bob = new ChatEngine(bobId);
 
-        string? aliceReceiptType = null;
-        alice.OnReceiptReceived += (sender, msgId, type) => aliceReceiptType = type;
+        var signal = WaitSignalAsync(onResult =>
+            alice.OnReceiptReceived += (sender, msgId, type) => onResult());
 
         await alice.ConnectAsync([RelayUrl()]);
         await bob.ConnectAsync([RelayUrl()]);
 
         await alice.SendMessageAsync(bobId.PublicKeyHex, "test receipt");
 
-        var gotReceipt = await WaitForTrue(() => aliceReceiptType != null, 8000);
-        Assert.True(gotReceipt);
-        Assert.Equal("delivered", aliceReceiptType);
+        await signal;
 
         await Task.WhenAll(alice.DisconnectAsync(), bob.DisconnectAsync());
     }
@@ -134,12 +127,12 @@ public class TransportIntegrationTests : IDisposable
         var alice = new NostrTransport(aliceId, alicePeer, [RelayUrl()]);
         var bob = new NostrTransport(bobId, bobPeer, [RelayUrl()]);
 
-        TransportEvent bobReceived = default;
-        bob.OnEvent += evt =>
-        {
-            if (evt.Type == TransportEventType.PrivateMessageReceived)
-                bobReceived = evt;
-        };
+        var signal = WaitSignalAsync<TransportEvent>(onResult =>
+            bob.OnEvent += evt =>
+            {
+                if (evt.Type == TransportEventType.PrivateMessageReceived)
+                    onResult(evt);
+            });
 
         alice.RegisterPeer(bobPeer, bobId.PublicKeyHex);
         bob.RegisterPeer(alicePeer, aliceId.PublicKeyHex);
@@ -149,9 +142,9 @@ public class TransportIntegrationTests : IDisposable
 
         await alice.SendPrivateMessage("Nostr transport test", bobPeer);
 
-        var got = await WaitForTrue(() => bobReceived.Type == TransportEventType.PrivateMessageReceived);
-        Assert.True(got);
-        Assert.Equal("Nostr transport test", bobReceived.Content);
+        var got = await signal;
+        Assert.Equal(TransportEventType.PrivateMessageReceived, got.Type);
+        Assert.Equal("Nostr transport test", got.Content);
 
         await Task.WhenAll(alice.StopAsync(), bob.StopAsync());
     }
@@ -167,12 +160,12 @@ public class TransportIntegrationTests : IDisposable
         var alice = new NostrTransport(aliceId, alicePeer, [RelayUrl()]);
         var bob = new NostrTransport(bobId, bobPeer, [RelayUrl()]);
 
-        var deliveryEvents = new List<TransportEvent>();
-        alice.OnEvent += evt =>
-        {
-            if (evt.Type == TransportEventType.DataReceived && evt.Content == "delivered")
-                deliveryEvents.Add(evt);
-        };
+        var signal = WaitSignalAsync<TransportEvent>(onResult =>
+            alice.OnEvent += evt =>
+            {
+                if (evt.Type == TransportEventType.DataReceived && evt.Content == "delivered")
+                    onResult(evt);
+            });
 
         alice.RegisterPeer(bobPeer, bobId.PublicKeyHex);
         bob.RegisterPeer(alicePeer, aliceId.PublicKeyHex);
@@ -182,8 +175,7 @@ public class TransportIntegrationTests : IDisposable
 
         await alice.SendPrivateMessage("test delivery", bobPeer);
 
-        var found = await WaitForTrue(() => deliveryEvents.Count > 0, 8000);
-        Assert.True(found);
+        var found = await signal;
 
         await Task.WhenAll(alice.StopAsync(), bob.StopAsync());
     }
@@ -202,12 +194,12 @@ public class TransportIntegrationTests : IDisposable
         aliceNostr.RegisterPeer(bobPeer, bobId.PublicKeyHex);
         bobNostr.RegisterPeer(alicePeer, aliceId.PublicKeyHex);
 
-        TransportEvent bobReceived = default;
-        bobNostr.OnEvent += evt =>
-        {
-            if (evt.Type == TransportEventType.PrivateMessageReceived)
-                bobReceived = evt;
-        };
+        var signal = WaitSignalAsync<TransportEvent>(onResult =>
+            bobNostr.OnEvent += evt =>
+            {
+                if (evt.Type == TransportEventType.PrivateMessageReceived)
+                    onResult(evt);
+            });
 
         var router = new MessageRouter(aliceNostr);
         router.WireEvents();
@@ -217,9 +209,9 @@ public class TransportIntegrationTests : IDisposable
 
         await router.SendPrivateMessage("router test", bobPeer);
 
-        var got = await WaitForTrue(() => bobReceived.Type == TransportEventType.PrivateMessageReceived);
-        Assert.True(got);
-        Assert.Equal("router test", bobReceived.Content);
+        var got = await signal;
+        Assert.Equal(TransportEventType.PrivateMessageReceived, got.Type);
+        Assert.Equal("router test", got.Content);
 
         await router.StopAllAsync();
         await bobNostr.StopAsync();
@@ -260,13 +252,19 @@ public class TransportIntegrationTests : IDisposable
         var router = new MessageRouter(aliceNostr);
         router.WireEvents();
 
+        var signal = WaitSignalAsync(onResult =>
+            router.OnTransportEvent += evt =>
+            {
+                if (evt.Content == "delivered") onResult();
+            });
+
         await aliceNostr.StartAsync();
         await bobNostr.StartAsync();
 
         await router.SendPrivateMessage("delivery test", bobPeer);
 
-        var delivered = await WaitForTrue(() => router.Outbox.PendingCount == 0, 8000);
-        Assert.True(delivered);
+        await signal;
+        Assert.Equal(0, router.Outbox.PendingCount);
 
         await router.StopAllAsync();
         await bobNostr.StopAsync();
@@ -282,11 +280,16 @@ public class TransportIntegrationTests : IDisposable
         var bot = new ChatEngine(botId);
 
         var receivedByClient = new List<Message>();
-
+        var tcs = new TaskCompletionSource();
         client.OnMessageReceived += msg =>
         {
-            lock (receivedByClient) receivedByClient.Add(msg);
+            lock (receivedByClient)
+            {
+                receivedByClient.Add(msg);
+                if (receivedByClient.Count >= 2) tcs.TrySetResult();
+            }
         };
+
         bot.OnMessageReceived += async msg =>
         {
             await bot.SendMessageAsync(msg.SenderPubkey, "BOT: " + msg.Content);
@@ -298,13 +301,15 @@ public class TransportIntegrationTests : IDisposable
         await client.SendMessageAsync(botId.PublicKeyHex, "msg1");
         await client.SendMessageAsync(botId.PublicKeyHex, "msg2");
 
-        var gotTwo = await WaitForTrue(() =>
+        using var cts = new CancellationTokenSource(12000);
+        cts.Token.Register(() => tcs.TrySetCanceled(cts.Token));
+        await tcs.Task;
+
+        lock (receivedByClient)
         {
-            lock (receivedByClient) return receivedByClient.Count >= 2;
-        }, 10000);
-        Assert.True(gotTwo);
-        Assert.Equal("BOT: msg1", receivedByClient[0].Content);
-        Assert.Equal("BOT: msg2", receivedByClient[1].Content);
+            Assert.Equal("BOT: msg1", receivedByClient[0].Content);
+            Assert.Equal("BOT: msg2", receivedByClient[1].Content);
+        }
 
         await Task.WhenAll(client.DisconnectAsync(), bot.DisconnectAsync());
     }
