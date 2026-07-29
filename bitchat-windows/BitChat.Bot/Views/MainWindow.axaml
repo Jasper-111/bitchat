@@ -21,6 +21,7 @@
             <TextBlock Text="{Binding Client.IdentityInfo}" FontSize="10" FontFamily="Consolas,monospace"
                        VerticalAlignment="Center"/>
             <Button Command="{Binding Client.CopyNpubCommand}" FontSize="10" Padding="6,2">Copy npub</Button>
+            <Button Command="{Binding Client.CopyHexCommand}" FontSize="10" Padding="6,2">Copy hex</Button>
           </StackPanel>
         </Border>
 
@@ -72,6 +73,7 @@
             <TextBlock Text="{Binding Bot.IdentityInfo}" FontSize="10" FontFamily="Consolas,monospace"
                        VerticalAlignment="Center"/>
             <Button Command="{Binding Bot.CopyNpubCommand}" FontSize="10" Padding="6,2">Copy npub</Button>
+            <Button Command="{Binding Bot.CopyHexCommand}" FontSize="10" Padding="6,2">Copy hex</Button>
           </StackPanel>
         </Border>
 

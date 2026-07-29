@@ -14,6 +14,10 @@
         <TextBlock Text="{Binding Npub}" FontSize="10" Opacity="0.5" VerticalAlignment="Center"/>
         <Button Content="Copy npub" Click="OnCopyNpubClick" FontSize="10" Padding="6,2"
                 VerticalAlignment="Center"/>
+        <Button Content="Copy hex" Click="OnCopyHexClick" FontSize="10" Padding="6,2"
+                VerticalAlignment="Center"/>
+        <Button Content="Copy hex" Click="OnCopyHexClick" FontSize="10" Padding="6,2"
+                VerticalAlignment="Center"/>
       </StackPanel>
       <TextBox Text="{Binding RecipientPubkey}" Watermark="Recipient nostr pubkey (hex)" Width="400"/>
     </StackPanel>

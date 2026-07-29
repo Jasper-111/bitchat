@@ -33,6 +33,13 @@ public partial class ClientViewModel : ViewModelBase
         await _clipboardSetter(_engine.Identity.Npub);
     }
 
+    [RelayCommand]
+    private async Task CopyHex()
+    {
+        if (_engine == null || _clipboardSetter == null) return;
+        await _clipboardSetter(_engine.Identity.PublicKeyHex);
+    }
+
     public void Initialize(ChatEngine engine, string defaultRecipient, Func<string, Task>? clipboardSetter = null)
     {
         _engine = engine;
