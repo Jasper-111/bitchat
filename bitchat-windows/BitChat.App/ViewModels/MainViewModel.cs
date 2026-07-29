@@ -17,6 +17,7 @@ public partial class MainViewModel : ViewModelBase
     private string _recipientPubkey = "";
     private string _composeText = "";
     private bool _isConnected;
+    private readonly string[] _relayUrls;
 
     public ObservableCollection<ChatBubble> Messages { get; } = [];
 
@@ -27,24 +28,26 @@ public partial class MainViewModel : ViewModelBase
     public string ComposeText { get => _composeText; set => SetProperty(ref _composeText, value); }
     public string ConnectText => IsConnected ? "Disconnect" : "Connect";
     public bool IsConnected { get => _isConnected; set => SetProperty(ref _isConnected, value); }
+    public bool IsLocal => _relayUrls.Length == 1 && _relayUrls[0].StartsWith("ws://");
 
-    private readonly string[] _relayUrls =
-    [
-        "wss://relay.damus.io",
-        "wss://nos.lol",
-        "wss://relay.primal.net",
-        "wss://offchain.pub"
-    ];
-
-    public MainViewModel()
+    public MainViewModel(string[]? relayUrls = null)
     {
+        _relayUrls = relayUrls ?? [
+            "wss://relay.damus.io",
+            "wss://nos.lol",
+            "wss://relay.primal.net",
+            "wss://offchain.pub"
+        ];
+
         var identity = NostrIdentity.Generate();
         Npub = identity.Npub;
         NpubHex = identity.PublicKeyHex;
         _engine = new ChatEngine(identity);
         _engine.OnConnected += (id) =>
         {
-            Status = $"Connected — {id.Npub[..12]}...";
+            Status = IsLocal
+                ? $"Local Relay — {id.Npub[..12]}..."
+                : $"Connected — {id.Npub[..12]}...";
             IsConnected = true;
         };
         _engine.OnLog += (_, msg) => { };
@@ -60,6 +63,9 @@ public partial class MainViewModel : ViewModelBase
             if (string.IsNullOrWhiteSpace(RecipientPubkey))
                 RecipientPubkey = msg.SenderPubkey;
         };
+
+        if (IsLocal)
+            _ = ConnectAsync();
     }
 
     public ICommand SendCommand => _sendCommand ??= new AsyncRelayCommand(SendAsync);
@@ -88,8 +94,27 @@ public partial class MainViewModel : ViewModelBase
             return;
         var text = ComposeText;
         ComposeText = "";
-        Messages.Add(new ChatBubble { Sender = "Me", Content = text, Time = DateTimeOffset.Now.ToString("HH:mm"), IsSelf = true });
-        await _engine.SendMessageAsync(RecipientPubkey, text);
+        Messages.Add(new ChatBubble
+        {
+            Sender = "Me",
+            Content = text,
+            Time = DateTimeOffset.Now.ToString("HH:mm"),
+            IsSelf = true
+        });
+        try
+        {
+            await _engine.SendMessageAsync(RecipientPubkey, text);
+        }
+        catch (Exception ex)
+        {
+            Messages.Add(new ChatBubble
+            {
+                Sender = "ERROR",
+                Content = ex.Message,
+                Time = DateTimeOffset.Now.ToString("HH:mm"),
+                IsSelf = false
+            });
+        }
     }
 }
 

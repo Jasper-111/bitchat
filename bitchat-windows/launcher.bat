@@ -9,19 +9,21 @@ echo   BitChat - Windows
 echo ============================================================
 echo.
 
-echo   [1] Unified Client + Bot  (primary)
-echo   [2] Standalone GUI client (external relays)
-echo   [3] Build all (Release)
-echo   [4] Build all (Debug)
-echo   [5] Clean + rebuild
+echo   [1] Unified Client + Bot  (single window, in-process)
+echo   [2] Standalone GUI client (public relays)
+echo   [3] Local test: relay + 2 clients (no internet)
+echo   [4] Build all (Release)
+echo   [5] Build all (Debug)
+echo   [6] Clean + rebuild
 echo   [0] Exit
 echo.
-choice /c 123450 /n /m "Select: "
+choice /c 1234560 /n /m "Select: "
 
-if errorlevel 6 exit /b 0
-if errorlevel 5 goto :clean
-if errorlevel 4 goto :debug
-if errorlevel 3 goto :release
+if errorlevel 7 exit /b 0
+if errorlevel 6 goto :clean
+if errorlevel 5 goto :debug
+if errorlevel 4 goto :release
+if errorlevel 3 goto :local
 if errorlevel 2 goto :standalone
 if errorlevel 1 goto :unified
 
@@ -35,6 +37,18 @@ goto :end
 if not exist "BitChat.App\bin\Release\net8.0-windows10.0.19041.0\BitChat.App.exe" call :build_rel
 echo [*] Starting standalone App...
 start "" "BitChat.App\bin\Release\net8.0-windows10.0.19041.0\BitChat.App.exe"
+goto :end
+
+:local
+if not exist "BitChat.App\bin\Release\net8.0-windows10.0.19041.0\BitChat.App.exe" call :build_rel
+echo [*] Starting local relay + 2 clients...
+echo.
+echo   First window: hosts relay on port 4869, auto-connects
+echo   Second window: connects to the hosted relay
+echo.
+start "" "BitChat.App\bin\Release\net8.0-windows10.0.19041.0\BitChat.App.exe" --local
+timeout /t 2 /nobreak >nul
+start "" "BitChat.App\bin\Release\net8.0-windows10.0.19041.0\BitChat.App.exe" --local
 goto :end
 
 :release
