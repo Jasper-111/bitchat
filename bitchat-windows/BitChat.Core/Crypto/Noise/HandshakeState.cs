@@ -76,12 +76,15 @@ public sealed class HandshakeState
         {
             case "e":
             {
-                byte[] eKey;
+                byte[] pubKey;
                 if (_e.Length == 0)
-                    (_e, eKey) = Curve25519.GenerateKeyPair();
+                {
+                    (_e, pubKey) = Curve25519.GenerateKeyPair();
+                }
                 else
-                    eKey = _e;
-                var pubKey = Curve25519.DerivePublicKey(eKey);
+                {
+                    pubKey = Curve25519.DerivePublicKey(_e);
+                }
                 buffer.AddRange(pubKey);
                 _ss.MixHash(pubKey);
                 break;

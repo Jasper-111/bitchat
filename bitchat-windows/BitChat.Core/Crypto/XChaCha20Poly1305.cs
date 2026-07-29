@@ -26,7 +26,8 @@ public static class XChaCha20Poly1305
     public static (byte[] ciphertext, byte[] tag) NoiseEncrypt(
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
-        ulong noiseNonce)
+        ulong noiseNonce,
+        ReadOnlySpan<byte> ad = default)
     {
         if (key.Length != 32) throw new ArgumentException(null, nameof(key));
         var nonce12 = new byte[12];
@@ -41,7 +42,7 @@ public static class XChaCha20Poly1305
 
         var ciphertext = new byte[plaintext.Length];
         var tag = new byte[16];
-        AeadEncrypt(plaintext, ciphertext, tag, key, nonce12);
+        AeadEncrypt(plaintext, ciphertext, tag, key, nonce12, ad);
         return (ciphertext, tag);
     }
 
@@ -68,7 +69,8 @@ public static class XChaCha20Poly1305
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> tag,
         ReadOnlySpan<byte> key,
-        ulong noiseNonce)
+        ulong noiseNonce,
+        ReadOnlySpan<byte> ad = default)
     {
         if (key.Length != 32) throw new ArgumentException(null, nameof(key));
         if (tag.Length != 16) throw new ArgumentException(null, nameof(tag));
@@ -84,7 +86,7 @@ public static class XChaCha20Poly1305
         nonce12[7] = (byte)(noiseNonce >> 56);
 
         var plaintext = new byte[ciphertext.Length];
-        AeadDecrypt(ciphertext, tag, plaintext, key, nonce12);
+        AeadDecrypt(ciphertext, tag, plaintext, key, nonce12, ad);
         return plaintext;
     }
 
@@ -93,7 +95,8 @@ public static class XChaCha20Poly1305
         Span<byte> ciphertext,
         Span<byte> tag,
         ReadOnlySpan<byte> key,
-        ReadOnlySpan<byte> nonce)
+        ReadOnlySpan<byte> nonce,
+        ReadOnlySpan<byte> aad = default)
     {
         Span<byte> block = stackalloc byte[64];
         ChaCha20Block(key, 0, nonce, block);
@@ -114,7 +117,7 @@ public static class XChaCha20Poly1305
             counter++;
         }
 
-        ComputePoly1305Tag(tag, ReadOnlySpan<byte>.Empty, ciphertext, polyKey);
+        ComputePoly1305Tag(tag, aad, ciphertext, polyKey);
     }
 
     private static void AeadDecrypt(
@@ -122,14 +125,15 @@ public static class XChaCha20Poly1305
         ReadOnlySpan<byte> tag,
         Span<byte> plaintext,
         ReadOnlySpan<byte> key,
-        ReadOnlySpan<byte> nonce)
+        ReadOnlySpan<byte> nonce,
+        ReadOnlySpan<byte> aad = default)
     {
         Span<byte> block = stackalloc byte[64];
         ChaCha20Block(key, 0, nonce, block);
         Span<byte> polyKey = block[..32];
 
         var computedTag = (stackalloc byte[16]);
-        ComputePoly1305Tag(computedTag, ReadOnlySpan<byte>.Empty, ciphertext, polyKey);
+        ComputePoly1305Tag(computedTag, aad, ciphertext, polyKey);
         if (!CryptographicOperations.FixedTimeEquals(computedTag, tag))
             throw new CryptographicException("Invalid authentication tag");
 

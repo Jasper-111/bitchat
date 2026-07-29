@@ -18,7 +18,7 @@ public class CipherState
         if (!HasKey)
             return (byte[])plaintext.Clone();
 
-        var (ciphertext, tag) = XChaCha20Poly1305.NoiseEncrypt(plaintext, _key, _nonce);
+        var (ciphertext, tag) = XChaCha20Poly1305.NoiseEncrypt(plaintext, _key, _nonce, ad);
         _nonce++;
 
         var result = new byte[ciphertext.Length + 16];
@@ -38,7 +38,7 @@ public class CipherState
         var ctLen = ciphertextWithTag.Length - 16;
         var tag = ciphertextWithTag[ctLen..];
         var plaintext = XChaCha20Poly1305.NoiseDecrypt(
-            ciphertextWithTag[..ctLen], tag, _key, _nonce);
+            ciphertextWithTag[..ctLen], tag, _key, _nonce, ad);
         _nonce++;
         return plaintext;
     }

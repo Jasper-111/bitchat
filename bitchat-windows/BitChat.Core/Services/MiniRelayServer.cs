@@ -21,7 +21,7 @@ public class MiniRelayServer : IDisposable
     public event Action<string>? OnLog;
 
     public bool IsRunning => _listener != null;
-    public int Port => _port;
+    public int Port => (_listener?.LocalEndpoint as IPEndPoint)?.Port ?? _port;
 
     public MiniRelayServer(int port = 4869)
     {

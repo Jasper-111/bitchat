@@ -13,7 +13,15 @@ public sealed class SymmetricState
     public void InitializeSymmetric(string protocolName)
     {
         var nameBytes = System.Text.Encoding.UTF8.GetBytes(protocolName);
-        _h = SHA256.HashData(nameBytes);
+        if (nameBytes.Length <= HashLen)
+        {
+            _h = new byte[HashLen];
+            Buffer.BlockCopy(nameBytes, 0, _h, 0, nameBytes.Length);
+        }
+        else
+        {
+            _h = SHA256.HashData(nameBytes);
+        }
         _ck = (byte[])_h.Clone();
         MixHash([]);
     }
