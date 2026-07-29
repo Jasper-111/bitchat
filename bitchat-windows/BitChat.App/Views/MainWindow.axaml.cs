@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 
 namespace BitChat.App.Views;
 
@@ -12,7 +11,7 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    private async void OnCopyNpubClick(object? sender, RoutedEventArgs e)
+    private async void OnCopyNpubClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is ViewModels.MainViewModel vm)
         {
@@ -21,20 +20,6 @@ public partial class MainWindow : Window
                 var topLevel = TopLevel.GetTopLevel(this);
                 if (topLevel?.Clipboard != null)
                     await topLevel.Clipboard.SetTextAsync(vm.Npub);
-            }
-            catch { }
-        }
-    }
-
-    private async void OnCopyHexClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is ViewModels.MainViewModel vm)
-        {
-            try
-            {
-                var topLevel = TopLevel.GetTopLevel(this);
-                if (topLevel?.Clipboard != null)
-                    await topLevel.Clipboard.SetTextAsync(vm.NpubHex);
             }
             catch { }
         }

@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using BitChat.Core.Crypto;
 using BitChat.Core.Nostr;
 using BitChat.Core.Services;
 
@@ -15,8 +16,11 @@ public partial class MainViewModel : ViewModelBase
     private string _npub = "";
     private string _npubHex = "";
     private string _recipientPubkey = "";
+    private string _recipientDisplay = "";
     private string _composeText = "";
     private bool _isConnected;
+    private int _relayConnected;
+    private int _relayTotal;
     private readonly string[] _relayUrls;
 
     public ObservableCollection<ChatBubble> Messages { get; } = [];
@@ -24,7 +28,18 @@ public partial class MainViewModel : ViewModelBase
     public string Status { get => _status; set => SetProperty(ref _status, value); }
     public string Npub { get => _npub; set => SetProperty(ref _npub, value); }
     public string NpubHex { get => _npubHex; set => SetProperty(ref _npubHex, value); }
-    public string RecipientPubkey { get => _recipientPubkey; set => SetProperty(ref _recipientPubkey, value); }
+
+    public string RecipientPubkey
+    {
+        get => _recipientDisplay;
+        set
+        {
+            _recipientDisplay = value;
+            _recipientPubkey = ResolvePubkey(value);
+            OnPropertyChanged();
+        }
+    }
+
     public string ComposeText { get => _composeText; set => SetProperty(ref _composeText, value); }
     public string ConnectText => IsConnected ? "Disconnect" : "Connect";
     public bool IsConnected { get => _isConnected; set => SetProperty(ref _isConnected, value); }
@@ -38,6 +53,7 @@ public partial class MainViewModel : ViewModelBase
             "wss://relay.primal.net",
             "wss://offchain.pub"
         ];
+        _relayTotal = _relayUrls.Length;
 
         var identity = NostrIdentity.Generate();
         Npub = identity.Npub;
@@ -45,12 +61,18 @@ public partial class MainViewModel : ViewModelBase
         _engine = new ChatEngine(identity);
         _engine.OnConnected += (id) =>
         {
-            Status = IsLocal
+            _relayConnected++;
+            var suffix = IsLocal
                 ? $"Local Relay — {id.Npub[..12]}..."
-                : $"Connected — {id.Npub[..12]}...";
+                : $"{_relayConnected}/{_relayTotal} relays — {id.Npub[..12]}...";
+            Status = suffix;
             IsConnected = true;
         };
-        _engine.OnLog += (_, msg) => { };
+        _engine.OnLog += (_, msg) =>
+        {
+            if (msg.StartsWith("Failed to connect"))
+                Status = $"{_relayConnected}/{_relayTotal} relays | {msg[..Math.Min(msg.Length, 50)]}";
+        };
         _engine.OnMessageReceived += (msg) =>
         {
             Messages.Add(new ChatBubble
@@ -60,12 +82,15 @@ public partial class MainViewModel : ViewModelBase
                 Time = msg.Timestamp.ToString("HH:mm"),
                 IsSelf = false
             });
-            if (string.IsNullOrWhiteSpace(RecipientPubkey))
+            if (string.IsNullOrWhiteSpace(_recipientPubkey))
                 RecipientPubkey = msg.SenderPubkey;
         };
 
         if (IsLocal)
+        {
+            Status = $"Local Relay — autoconnect...";
             _ = ConnectAsync();
+        }
     }
 
     public ICommand SendCommand => _sendCommand ??= new AsyncRelayCommand(SendAsync);
@@ -80,18 +105,34 @@ public partial class MainViewModel : ViewModelBase
         {
             if (_engine != null) await _engine.DisconnectAsync();
             IsConnected = false;
+            _relayConnected = 0;
             Status = "Disconnected";
             return;
         }
-        Status = "Connecting...";
-        if (_engine != null) await _engine.ConnectAsync(_relayUrls);
+        Status = $"Connecting 0/{_relayTotal}...";
+        _relayConnected = 0;
+        if (_engine != null)
+        {
+            await _engine.ConnectAsync(_relayUrls);
+            if (_relayConnected == 0)
+                Status = $"0/{_relayTotal} relays — check network or use [3] local";
+        }
     }
 
     private async Task SendAsync()
     {
         if (_engine == null || string.IsNullOrWhiteSpace(ComposeText)) return;
-        if (string.IsNullOrWhiteSpace(RecipientPubkey))
+        if (string.IsNullOrWhiteSpace(_recipientPubkey))
+        {
+            Messages.Add(new ChatBubble
+            {
+                Sender = "ERROR",
+                Content = "Enter a recipient npub or hex first",
+                Time = DateTimeOffset.Now.ToString("HH:mm"),
+                IsSelf = false
+            });
             return;
+        }
         var text = ComposeText;
         ComposeText = "";
         Messages.Add(new ChatBubble
@@ -103,7 +144,7 @@ public partial class MainViewModel : ViewModelBase
         });
         try
         {
-            await _engine.SendMessageAsync(RecipientPubkey, text);
+            await _engine.SendMessageAsync(_recipientPubkey, text);
         }
         catch (Exception ex)
         {
@@ -115,6 +156,28 @@ public partial class MainViewModel : ViewModelBase
                 IsSelf = false
             });
         }
+    }
+
+    private static string ResolvePubkey(string input)
+    {
+        var trimmed = input.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return "";
+
+        if (trimmed.StartsWith("npub1", StringComparison.Ordinal))
+        {
+            try
+            {
+                var (hrp, data) = Bech32.Decode(trimmed);
+                if (hrp == "npub" && data.Length == 32)
+                    return Convert.ToHexString(data).ToLowerInvariant();
+            }
+            catch { return trimmed; }
+        }
+
+        if (trimmed.Length == 64 && trimmed.All(c => char.IsAsciiHexDigit(c)))
+            return trimmed.ToLowerInvariant();
+
+        return trimmed;
     }
 }
 
