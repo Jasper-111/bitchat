@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -11,11 +12,17 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    private async void OnNpubClick(object? sender, PointerPressedEventArgs e)
+    private async void OnCopyNpubClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is ViewModels.MainViewModel vm)
         {
-            await Clipboard!.SetTextAsync(vm.Npub);
+            try
+            {
+                var topLevel = TopLevel.GetTopLevel(this);
+                if (topLevel?.Clipboard != null)
+                    await topLevel.Clipboard.SetTextAsync(vm.Npub);
+            }
+            catch { }
         }
     }
 

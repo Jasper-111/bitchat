@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using BitChat.Core.Services;
 
 namespace BitChat.Bot.ViewModels;
@@ -17,6 +18,7 @@ public partial class BotViewModel : ViewModelBase
     private int _messagesSent;
     private int _receiptsReceived;
     private TaskCompletionSource<bool>? _selftestCompletion;
+    private Func<string, Task>? _clipboardSetter;
 
     public string IdentityInfo { get => _identityInfo; private set => SetProperty(ref _identityInfo, value); }
     public string Logs { get => _logs; set => SetProperty(ref _logs, value); }
@@ -27,9 +29,17 @@ public partial class BotViewModel : ViewModelBase
     public int MessagesSent => _messagesSent;
     public int ReceiptsReceived => _receiptsReceived;
 
-    public void Initialize(ChatEngine engine)
+    [RelayCommand]
+    private async Task CopyNpub()
+    {
+        if (_engine == null || _clipboardSetter == null) return;
+        await _clipboardSetter(_engine.Identity.Npub);
+    }
+
+    public void Initialize(ChatEngine engine, Func<string, Task>? clipboardSetter = null)
     {
         _engine = engine;
+        _clipboardSetter = clipboardSetter;
         IdentityInfo = $"npub: {engine.Identity.Npub}\nhex: {engine.Identity.PublicKeyHex}";
         _engine.OnLog += (ts, msg) => AppendLog($"[{ts}] {msg}");
         _engine.OnMessageReceived += OnMessageReceived;

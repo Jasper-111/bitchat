@@ -1,4 +1,6 @@
+using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using BitChat.Bot.ViewModels;
@@ -17,10 +19,15 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
-            {
-                DataContext = new MainViewModel(),
-            };
+            var window = new MainWindow();
+            window.DataContext = new MainViewModel(
+                async text =>
+                {
+                    var tl = TopLevel.GetTopLevel(window);
+                    if (tl?.Clipboard != null)
+                        await tl.Clipboard.SetTextAsync(text);
+                });
+            desktop.MainWindow = window;
         }
 
         base.OnFrameworkInitializationCompleted();

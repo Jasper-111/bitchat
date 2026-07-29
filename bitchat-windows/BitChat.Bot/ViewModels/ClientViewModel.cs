@@ -17,6 +17,7 @@ public partial class ClientViewModel : ViewModelBase
     private string _composeText = "";
     private string _recipientPubkey = "";
     private bool _isConnected;
+    private Func<string, Task>? _clipboardSetter;
 
     public ObservableCollection<ChatBubble> Messages { get; } = [];
 
@@ -25,9 +26,17 @@ public partial class ClientViewModel : ViewModelBase
     public string RecipientPubkey { get => _recipientPubkey; set => SetProperty(ref _recipientPubkey, value); }
     public bool IsConnected { get => _isConnected; set => SetProperty(ref _isConnected, value); }
 
-    public void Initialize(ChatEngine engine, string defaultRecipient)
+    [RelayCommand]
+    private async Task CopyNpub()
+    {
+        if (_engine == null || _clipboardSetter == null) return;
+        await _clipboardSetter(_engine.Identity.Npub);
+    }
+
+    public void Initialize(ChatEngine engine, string defaultRecipient, Func<string, Task>? clipboardSetter = null)
     {
         _engine = engine;
+        _clipboardSetter = clipboardSetter;
         RecipientPubkey = defaultRecipient;
         IdentityInfo = $"npub: {engine.Identity.Npub}\nhex: {engine.Identity.PublicKeyHex}";
         _engine.OnMessageReceived += OnMessage;

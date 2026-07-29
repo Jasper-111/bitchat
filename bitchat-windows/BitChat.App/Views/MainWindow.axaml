@@ -11,8 +11,9 @@
                 Background="#2196F3" Foreground="White" VerticalAlignment="Center">
           <TextBlock Text="{Binding ConnectText}"/>
         </Button>
-        <TextBlock Text="{Binding Npub}" FontSize="10" Opacity="0.5" VerticalAlignment="Center"
-                   ToolTip.Tip="Click to copy npub" PointerPressed="OnNpubClick"/>
+        <TextBlock Text="{Binding Npub}" FontSize="10" Opacity="0.5" VerticalAlignment="Center"/>
+        <Button Content="Copy npub" Click="OnCopyNpubClick" FontSize="10" Padding="6,2"
+                VerticalAlignment="Center"/>
       </StackPanel>
       <TextBox Text="{Binding RecipientPubkey}" Watermark="Recipient nostr pubkey (hex)" Width="400"/>
     </StackPanel>

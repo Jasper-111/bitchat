@@ -23,7 +23,7 @@ public partial class MainViewModel : ViewModelBase
     public string RelayStatus { get => _relayStatus; set => SetProperty(ref _relayStatus, value); }
     public string TestResults { get => _testResults; set => SetProperty(ref _testResults, value); }
 
-    public MainViewModel()
+    public MainViewModel(Func<string, Task>? clipboardSetter = null)
     {
         var botIdentity = LoadOrCreateBotIdentity();
         var clientIdentity = NostrIdentity.Generate();
@@ -34,8 +34,8 @@ public partial class MainViewModel : ViewModelBase
         Client = new ClientViewModel();
         Bot = new BotViewModel();
 
-        Client.Initialize(_clientEngine, botIdentity.PublicKeyHex);
-        Bot.Initialize(_botEngine);
+        Client.Initialize(_clientEngine, botIdentity.PublicKeyHex, clipboardSetter);
+        Bot.Initialize(_botEngine, clipboardSetter);
 
         _ = ConnectBothAsync();
     }

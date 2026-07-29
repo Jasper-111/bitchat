@@ -16,9 +16,11 @@
     <Border Grid.Row="1" BorderBrush="#E0E0E0" BorderThickness="1" Padding="8" CornerRadius="4">
       <Grid RowDefinitions="Auto,Auto,Auto,*" ColumnDefinitions="*,Auto">
         <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#F5F5F5" Padding="6" CornerRadius="3" Margin="0,0,0,6">
-          <StackPanel Orientation="Horizontal" Spacing="16">
-            <TextBlock Text="Your Identity" FontWeight="Bold" FontSize="13"/>
-            <TextBlock Text="{Binding Client.IdentityInfo}" FontSize="10" FontFamily="Consolas,monospace"/>
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="Your Identity" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding Client.IdentityInfo}" FontSize="10" FontFamily="Consolas,monospace"
+                       VerticalAlignment="Center"/>
+            <Button Command="{Binding Client.CopyNpubCommand}" FontSize="10" Padding="6,2">Copy npub</Button>
           </StackPanel>
         </Border>
 
@@ -65,9 +67,11 @@
     <Border Grid.Row="3" BorderBrush="#E0E0E0" BorderThickness="1" Padding="8" CornerRadius="4">
       <Grid RowDefinitions="Auto,Auto,*">
         <Border Grid.Row="0" Background="#F5F5F5" Padding="6" CornerRadius="3" Margin="0,0,0,6">
-          <StackPanel Orientation="Horizontal" Spacing="16">
-            <TextBlock Text="Bot Identity" FontWeight="Bold" FontSize="13"/>
-            <TextBlock Text="{Binding Bot.IdentityInfo}" FontSize="10" FontFamily="Consolas,monospace"/>
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="Bot Identity" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding Bot.IdentityInfo}" FontSize="10" FontFamily="Consolas,monospace"
+                       VerticalAlignment="Center"/>
+            <Button Command="{Binding Bot.CopyNpubCommand}" FontSize="10" Padding="6,2">Copy npub</Button>
           </StackPanel>
         </Border>
 
