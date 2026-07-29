@@ -37,8 +37,6 @@ public static class NostrEnvelope
             throw new InvalidOperationException("Invalid seal");
         if (!seal.VerifySignature())
             throw new InvalidOperationException("Invalid seal signature");
-        if (seal.Pubkey != seal.Pubkey)
-            throw new InvalidOperationException("Seal not signed by original key");
 
         var rumor = OpenSeal(seal, recipientIdentity);
         if (rumor.Kind != NostrEventKind.Dm)

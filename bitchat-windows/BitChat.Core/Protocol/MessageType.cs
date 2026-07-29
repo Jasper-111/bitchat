@@ -46,8 +46,15 @@ public static class NoisePayloadType
         PrivateMessage => true,
         ReadReceipt => true,
         Delivered => true,
+        GroupInvite => true,
+        GroupKeyUpdate => true,
+        VoiceFrame => true,
         PrivateFile => true,
+        VerifyChallenge => true,
+        VerifyResponse => true,
+        Vouch => true,
         PrivateFileCanonical => true,
+        AuthenticatedPeerState => true,
         _ => false
     };
 }

@@ -1,10 +1,11 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using BitChat.Core.Services;
 
 namespace BitChat.Core.Nostr;
 
-public class NostrRelayClient : IDisposable
+public class NostrRelayClient : INostrRelay
 {
     private readonly Uri _url;
     private ClientWebSocket? _ws;
@@ -15,9 +16,12 @@ public class NostrRelayClient : IDisposable
     public event Action<NostrEvent>? OnEvent;
     public event Action<string>? OnNotice;
     public event Action<string, bool, string>? OnOk;
+    public Uri Url => _url;
     public bool IsConnected => _ws?.State == WebSocketState.Open;
 
     public NostrRelayClient(Uri url) => _url = url;
+
+    public static INostrRelay Create(Uri url) => new NostrRelayClient(url);
 
     public async Task ConnectAsync()
     {

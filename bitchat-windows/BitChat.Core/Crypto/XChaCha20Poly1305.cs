@@ -23,6 +23,28 @@ public static class XChaCha20Poly1305
         return (ciphertext, tag);
     }
 
+    public static (byte[] ciphertext, byte[] tag) NoiseEncrypt(
+        ReadOnlySpan<byte> plaintext,
+        ReadOnlySpan<byte> key,
+        ulong noiseNonce)
+    {
+        if (key.Length != 32) throw new ArgumentException(null, nameof(key));
+        var nonce12 = new byte[12];
+        nonce12[0] = (byte)(noiseNonce);
+        nonce12[1] = (byte)(noiseNonce >> 8);
+        nonce12[2] = (byte)(noiseNonce >> 16);
+        nonce12[3] = (byte)(noiseNonce >> 24);
+        nonce12[4] = (byte)(noiseNonce >> 32);
+        nonce12[5] = (byte)(noiseNonce >> 40);
+        nonce12[6] = (byte)(noiseNonce >> 48);
+        nonce12[7] = (byte)(noiseNonce >> 56);
+
+        var ciphertext = new byte[plaintext.Length];
+        var tag = new byte[16];
+        AeadEncrypt(plaintext, ciphertext, tag, key, nonce12);
+        return (ciphertext, tag);
+    }
+
     public static byte[] Decrypt(
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> tag,
@@ -39,6 +61,30 @@ public static class XChaCha20Poly1305
 
         var plaintext = new byte[ciphertext.Length];
         AeadDecrypt(ciphertext, tag, plaintext, subkey, nonce12);
+        return plaintext;
+    }
+
+    public static byte[] NoiseDecrypt(
+        ReadOnlySpan<byte> ciphertext,
+        ReadOnlySpan<byte> tag,
+        ReadOnlySpan<byte> key,
+        ulong noiseNonce)
+    {
+        if (key.Length != 32) throw new ArgumentException(null, nameof(key));
+        if (tag.Length != 16) throw new ArgumentException(null, nameof(tag));
+
+        var nonce12 = new byte[12];
+        nonce12[0] = (byte)(noiseNonce);
+        nonce12[1] = (byte)(noiseNonce >> 8);
+        nonce12[2] = (byte)(noiseNonce >> 16);
+        nonce12[3] = (byte)(noiseNonce >> 24);
+        nonce12[4] = (byte)(noiseNonce >> 32);
+        nonce12[5] = (byte)(noiseNonce >> 40);
+        nonce12[6] = (byte)(noiseNonce >> 48);
+        nonce12[7] = (byte)(noiseNonce >> 56);
+
+        var plaintext = new byte[ciphertext.Length];
+        AeadDecrypt(ciphertext, tag, plaintext, key, nonce12);
         return plaintext;
     }
 

@@ -58,7 +58,7 @@ public partial class ClientViewModel : ViewModelBase
         {
             Sender = "Me",
             Content = text,
-            Time = DateTimeOffset.UtcNow.ToString("HH:mm:ss"),
+            Time = DateTimeOffset.Now.ToString("HH:mm:ss"),
             IsSelf = true
         });
         try
@@ -73,7 +73,7 @@ public partial class ClientViewModel : ViewModelBase
                 {
                     Sender = "ERROR",
                     Content = ex.Message,
-                    Time = DateTimeOffset.UtcNow.ToString("HH:mm:ss"),
+                    Time = DateTimeOffset.Now.ToString("HH:mm:ss"),
                     IsSelf = false
                 });
             });

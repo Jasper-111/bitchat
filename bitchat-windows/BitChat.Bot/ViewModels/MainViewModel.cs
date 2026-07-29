@@ -1,6 +1,7 @@
 using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using BitChat.Core.Nostr;
 using BitChat.Core.Services;
 
@@ -8,8 +9,10 @@ namespace BitChat.Bot.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
-    private readonly MiniRelayServer _relay;
+    private ChatEngine? _clientEngine;
+    private ChatEngine? _botEngine;
     private string _relayStatus = "";
+    private string _testResults = "";
 
     private static readonly string DataDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BitChat");
@@ -18,39 +21,47 @@ public partial class MainViewModel : ViewModelBase
     public ClientViewModel Client { get; }
     public BotViewModel Bot { get; }
     public string RelayStatus { get => _relayStatus; set => SetProperty(ref _relayStatus, value); }
+    public string TestResults { get => _testResults; set => SetProperty(ref _testResults, value); }
 
     public MainViewModel()
     {
-        _relay = new MiniRelayServer(4869);
-        _relay.OnLog += msg => RelayStatus = $"{msg}";
-
         var botIdentity = LoadOrCreateBotIdentity();
         var clientIdentity = NostrIdentity.Generate();
 
-        var clientEngine = new ChatEngine(clientIdentity);
-        var botEngine = new ChatEngine(botIdentity);
+        _clientEngine = new ChatEngine(clientIdentity);
+        _botEngine = new ChatEngine(botIdentity);
 
         Client = new ClientViewModel();
         Bot = new BotViewModel();
 
-        _relay.Start();
-        RelayStatus = $"ws://localhost:4869";
+        Client.Initialize(_clientEngine, botIdentity.PublicKeyHex);
+        Bot.Initialize(_botEngine);
 
-        Client.Initialize(clientEngine, botIdentity.PublicKeyHex);
-        Bot.Initialize(botEngine);
-
-        _ = ConnectBothAsync(clientEngine, botEngine);
+        _ = ConnectBothAsync();
     }
 
-    private async Task ConnectBothAsync(ChatEngine clientEngine, ChatEngine botEngine)
+    private async Task ConnectBothAsync()
     {
-        var urls = new[] { "ws://localhost:4869" };
+        // In-process relay: zero network, zero platform issues
+        var (aliceRelay, bobRelay) = InProcessRelayClient.CreatePair();
+
         await Task.WhenAll(
-            clientEngine.ConnectAsync(urls),
-            botEngine.ConnectAsync(urls)
+            _clientEngine!.ConnectToRelay(aliceRelay),
+            _botEngine!.ConnectToRelay(bobRelay)
         );
+
         Client.IsConnected = true;
-        RelayStatus = $"ws://localhost:4869 (connected)";
+        RelayStatus = "inproc:// (connected, no network)";
+    }
+
+    [RelayCommand]
+    private async Task RunSelfTest()
+    {
+        if (_botEngine == null || _clientEngine == null) return;
+        TestResults = "Running...";
+
+        var success = await Bot.RunSelfTest(_clientEngine.Identity.PublicKeyHex);
+        TestResults = success ? "PASS: All messages delivered and acknowledged" : "FAIL: Check logs";
     }
 
     private static NostrIdentity LoadOrCreateBotIdentity()

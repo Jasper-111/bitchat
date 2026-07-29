@@ -9,9 +9,10 @@
         <TextBlock Text="BitChat" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
         <Button Command="{Binding ConnectCommand}" Width="100" Height="30"
                 Background="#2196F3" Foreground="White" VerticalAlignment="Center">
-          <TextBlock Text="{Binding Status}"/>
+          <TextBlock Text="{Binding ConnectText}"/>
         </Button>
-        <TextBlock Text="{Binding Npub}" FontSize="10" Opacity="0.5" VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding Npub}" FontSize="10" Opacity="0.5" VerticalAlignment="Center"
+                   ToolTip.Tip="Click to copy npub" PointerPressed="OnNpubClick"/>
       </StackPanel>
       <TextBox Text="{Binding RecipientPubkey}" Watermark="Recipient nostr pubkey (hex)" Width="400"/>
     </StackPanel>
@@ -35,7 +36,8 @@
     </ScrollViewer>
 
     <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
-      <TextBox Text="{Binding ComposeText}" Watermark="Type a message..." Grid.Column="0"/>
+      <TextBox Text="{Binding ComposeText}" Watermark="Type a message..." Grid.Column="0"
+               KeyDown="OnComposeKeyDown"/>
       <Button Command="{Binding SendCommand}" Content="Send" Grid.Column="1" Width="70"
               Margin="8,0,0,0" Background="#2196F3" Foreground="White"/>
     </Grid>

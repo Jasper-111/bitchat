@@ -25,11 +25,11 @@ public partial class MainViewModel : ViewModelBase
     public string NpubHex { get => _npubHex; set => SetProperty(ref _npubHex, value); }
     public string RecipientPubkey { get => _recipientPubkey; set => SetProperty(ref _recipientPubkey, value); }
     public string ComposeText { get => _composeText; set => SetProperty(ref _composeText, value); }
+    public string ConnectText => IsConnected ? "Disconnect" : "Connect";
     public bool IsConnected { get => _isConnected; set => SetProperty(ref _isConnected, value); }
 
     private readonly string[] _relayUrls =
     [
-        "ws://localhost:4869",
         "wss://relay.damus.io",
         "wss://nos.lol",
         "wss://relay.primal.net",
@@ -88,7 +88,7 @@ public partial class MainViewModel : ViewModelBase
             return;
         var text = ComposeText;
         ComposeText = "";
-        Messages.Add(new ChatBubble { Sender = "Me", Content = text, Time = DateTimeOffset.UtcNow.ToString("HH:mm"), IsSelf = true });
+        Messages.Add(new ChatBubble { Sender = "Me", Content = text, Time = DateTimeOffset.Now.ToString("HH:mm"), IsSelf = true });
         await _engine.SendMessageAsync(RecipientPubkey, text);
     }
 }
