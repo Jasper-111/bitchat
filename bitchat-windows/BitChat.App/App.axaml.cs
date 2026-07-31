@@ -6,6 +6,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using BitChat.App.ViewModels;
 using BitChat.App.Views;
+using BitChat.Core.Nostr;
 using BitChat.Core.Services;
 
 namespace BitChat.App;
@@ -26,27 +27,19 @@ public partial class App : Application
             var args = Environment.GetCommandLineArgs();
             var isLocal = args.Contains("--local");
             string[] relayUrls;
-            string? localRole = null;
 
             if (isLocal)
             {
                 var port = 4869;
-                // Try to bind port — if it fails, another instance is already hosting
                 TcpListener? testListener = null;
                 try
                 {
                     testListener = new TcpListener(IPAddress.Loopback, port);
                     testListener.Start();
-                    // Port was free — this instance hosts the relay
                     _localRelay = new MiniRelayServer(port);
                     _localRelay.Start();
-                    localRole = $"host :{port}";
                 }
-                catch (SocketException)
-                {
-                    // Port in use — connect to the existing relay
-                    localRole = $"guest → :{port}";
-                }
+                catch (SocketException) { }
                 finally
                 {
                     try { testListener?.Stop(); } catch { }
@@ -64,9 +57,14 @@ public partial class App : Application
                 ];
             }
 
-            var vm = new MainViewModel(relayUrls);
+            var identity = LoadOrCreateIdentity();
+            var vm = new MainViewModel(identity, relayUrls);
+
             if (isLocal)
-                vm.Status = $"Local Relay :{4869} ({localRole})";
+            {
+                var role = _localRelay != null ? $"host :4869" : $"guest -> :4869";
+                vm.Status = $"Local Relay ({role})";
+            }
 
             desktop.MainWindow = new MainWindow { DataContext = vm };
         }
@@ -74,7 +72,19 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    // MiniRelayServer is IDisposable but not registered in the DI container.
-    // The process exit cleans it up. For a proper shutdown, we'd dispose in
-    // OnFrameworkInitializationCompleted override or IClassicDesktopStyleApplicationLifetime.Exit.
+    private static NostrIdentity LoadOrCreateIdentity()
+    {
+        var store = new FileIdentityStore();
+
+        if (store.Exists())
+        {
+            var existing = store.LoadAsync().GetAwaiter().GetResult();
+            if (existing != null)
+                return existing;
+        }
+
+        var identity = NostrIdentity.Generate();
+        store.SaveAsync(identity).GetAwaiter().GetResult();
+        return identity;
+    }
 }

@@ -6,28 +6,27 @@ using CommunityToolkit.Mvvm.Input;
 using BitChat.Core.Crypto;
 using BitChat.Core.Nostr;
 using BitChat.Core.Services;
+using BitChat.Core.Services.Transport;
 
 namespace BitChat.App.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
-    private ChatEngine? _engine;
+    private readonly NostrIdentity _identity;
+    private readonly NostrTransport _transport;
+    private readonly MessageRouter _router;
+
     private string _status = "Disconnected";
     private string _npub = "";
-    private string _npubHex = "";
     private string _recipientPubkey = "";
     private string _recipientDisplay = "";
     private string _composeText = "";
     private bool _isConnected;
-    private int _relayConnected;
-    private int _relayTotal;
-    private readonly string[] _relayUrls;
 
     public ObservableCollection<ChatBubble> Messages { get; } = [];
 
     public string Status { get => _status; set => SetProperty(ref _status, value); }
     public string Npub { get => _npub; set => SetProperty(ref _npub, value); }
-    public string NpubHex { get => _npubHex; set => SetProperty(ref _npubHex, value); }
 
     public string RecipientPubkey
     {
@@ -43,53 +42,61 @@ public partial class MainViewModel : ViewModelBase
     public string ComposeText { get => _composeText; set => SetProperty(ref _composeText, value); }
     public string ConnectText => IsConnected ? "Disconnect" : "Connect";
     public bool IsConnected { get => _isConnected; set => SetProperty(ref _isConnected, value); }
-    public bool IsLocal => _relayUrls.Length == 1 && _relayUrls[0].StartsWith("ws://");
+    public bool IsLocal { get; }
 
-    public MainViewModel(string[]? relayUrls = null)
+    public MainViewModel(NostrIdentity identity, string[] relayUrls, INostrRelayFactory? relayFactory = null)
     {
-        _relayUrls = relayUrls ?? [
-            "wss://relay.damus.io",
-            "wss://nos.lol",
-            "wss://relay.primal.net",
-            "wss://offchain.pub"
-        ];
-        _relayTotal = _relayUrls.Length;
+        _identity = identity;
+        IsLocal = relayUrls.Length == 1 && relayUrls[0].StartsWith("ws://");
 
-        var identity = NostrIdentity.Generate();
         Npub = identity.Npub;
-        NpubHex = identity.PublicKeyHex;
-        _engine = new ChatEngine(identity);
-        _engine.OnConnected += (id) =>
-        {
-            _relayConnected++;
-            var suffix = IsLocal
-                ? $"Local Relay — {id.Npub[..12]}..."
-                : $"{_relayConnected}/{_relayTotal} relays — {id.Npub[..12]}...";
-            Status = suffix;
-            IsConnected = true;
-        };
-        _engine.OnLog += (_, msg) =>
+
+        var factory = relayFactory ?? new DefaultNostrRelayFactory();
+        _transport = new NostrTransport(identity, factory, relayUrls);
+        _transport.OnLog += (msg) =>
         {
             if (msg.StartsWith("Failed to connect"))
-                Status = $"{_relayConnected}/{_relayTotal} relays | {msg[..Math.Min(msg.Length, 50)]}";
+                Status = msg[..Math.Min(msg.Length, 50)];
         };
-        _engine.OnMessageReceived += (msg) =>
-        {
-            Messages.Add(new ChatBubble
-            {
-                Sender = msg.SenderPubkey[..8] + "...",
-                Content = msg.Content,
-                Time = msg.Timestamp.ToString("HH:mm"),
-                IsSelf = false
-            });
-            if (string.IsNullOrWhiteSpace(_recipientPubkey))
-                RecipientPubkey = msg.SenderPubkey;
-        };
+
+        _router = new MessageRouter([_transport]);
+        _router.OnTransportEvent += OnTransportEvent;
+        _router.WireEvents();
 
         if (IsLocal)
         {
-            Status = $"Local Relay — autoconnect...";
+            Status = "Local Relay — autoconnect...";
             _ = ConnectAsync();
+        }
+    }
+
+    private void OnTransportEvent(TransportEvent evt)
+    {
+        switch (evt.Type)
+        {
+            case TransportEventType.RelayConnected:
+                Status = IsLocal
+                    ? $"Local Relay — {_identity.Npub[..12]}..."
+                    : $"Connected — {_identity.Npub[..12]}...";
+                IsConnected = true;
+                break;
+
+            case TransportEventType.RelayDisconnected:
+                IsConnected = false;
+                Status = "Disconnected";
+                break;
+
+            case TransportEventType.PrivateMessageReceived:
+                Messages.Add(new ChatBubble
+                {
+                    Sender = evt.PeerID.ToString()[..8] + "...",
+                    Content = evt.Content ?? "",
+                    Time = evt.Timestamp.ToString("HH:mm"),
+                    IsSelf = false
+                });
+                if (string.IsNullOrWhiteSpace(_recipientPubkey) && evt.Content != null)
+                    RecipientPubkey = evt.PeerID.ToString();
+                break;
         }
     }
 
@@ -103,25 +110,20 @@ public partial class MainViewModel : ViewModelBase
     {
         if (IsConnected)
         {
-            if (_engine != null) await _engine.DisconnectAsync();
+            await _router.StopAllAsync();
             IsConnected = false;
-            _relayConnected = 0;
             Status = "Disconnected";
             return;
         }
-        Status = $"Connecting 0/{_relayTotal}...";
-        _relayConnected = 0;
-        if (_engine != null)
-        {
-            await _engine.ConnectAsync(_relayUrls);
-            if (_relayConnected == 0)
-                Status = $"0/{_relayTotal} relays — check network or use [3] local";
-        }
+
+        Status = "Connecting...";
+        await _router.StartAllAsync();
     }
 
     private async Task SendAsync()
     {
-        if (_engine == null || string.IsNullOrWhiteSpace(ComposeText)) return;
+        if (string.IsNullOrWhiteSpace(ComposeText)) return;
+
         if (string.IsNullOrWhiteSpace(_recipientPubkey))
         {
             Messages.Add(new ChatBubble
@@ -133,8 +135,10 @@ public partial class MainViewModel : ViewModelBase
             });
             return;
         }
+
         var text = ComposeText;
         ComposeText = "";
+
         Messages.Add(new ChatBubble
         {
             Sender = "Me",
@@ -142,9 +146,12 @@ public partial class MainViewModel : ViewModelBase
             Time = DateTimeOffset.Now.ToString("HH:mm"),
             IsSelf = true
         });
+
         try
         {
-            await _engine.SendMessageAsync(_recipientPubkey, text);
+            var peerID = new PeerID(Convert.FromHexString(_recipientPubkey[..16]));
+            _transport.RegisterPeer(peerID, _recipientPubkey);
+            await _router.SendPrivateMessage(text, peerID);
         }
         catch (Exception ex)
         {

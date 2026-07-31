@@ -1,28 +1,46 @@
 using BitChat.Core.Nostr;
 using BitChat.Core.Services;
+using BitChat.Core.Services.Transport;
 
-var (aliceRelay, bobRelay) = InProcessRelayClient.CreatePair();
+var clientId = NostrIdentity.Generate();
+var botId = NostrIdentity.Generate();
 
-var client = new ChatEngine(NostrIdentity.Generate());
-var bot = new ChatEngine(NostrIdentity.Generate());
+var clientPeer = new PeerID(Convert.FromHexString(clientId.PublicKeyHex[..16]));
+var botPeer = new PeerID(Convert.FromHexString(botId.PublicKeyHex[..16]));
 
-bot.OnMessageReceived += async msg =>
+var hub = new InProcessRelayHub();
+var clientFactory = new InProcessRelayFactory(hub);
+var botFactory = new InProcessRelayFactory(hub);
+
+var client = new NostrTransport(clientId, clientFactory, ["inproc://hub"], clientPeer);
+var bot = new NostrTransport(botId, botFactory, ["inproc://hub"], botPeer);
+
+bot.OnEvent += async evt =>
 {
-    Console.WriteLine($"[BOT received] {msg.Content}");
-    await bot.SendMessageAsync(msg.SenderPubkey, "Echo: " + msg.Content);
+    if (evt.Type == TransportEventType.PrivateMessageReceived && evt.Content != null)
+    {
+        Console.WriteLine($"[BOT received] {evt.Content}");
+        await bot.SendPrivateMessage("Echo: " + evt.Content, clientPeer);
+    }
 };
 
-client.OnMessageReceived += msg =>
-    Console.WriteLine($"[CLIENT received] {msg.Content}");
+client.OnEvent += evt =>
+{
+    if (evt.Type == TransportEventType.PrivateMessageReceived && evt.Content != null)
+        Console.WriteLine($"[CLIENT received] {evt.Content}");
+};
 
-client.OnLog += (ts, msg) => Console.WriteLine($"[log] {msg}");
-bot.OnLog += (ts, msg) => Console.WriteLine($"[log] {msg}");
+client.OnLog += msg => Console.WriteLine($"[log] {msg}");
+bot.OnLog += msg => Console.WriteLine($"[log] {msg}");
 
-await client.ConnectToRelay(aliceRelay);
-await bot.ConnectToRelay(bobRelay);
+client.RegisterPeer(botPeer, botId.PublicKeyHex);
+bot.RegisterPeer(clientPeer, clientId.PublicKeyHex);
+
+await client.StartAsync();
+await bot.StartAsync();
 
 Console.WriteLine();
-Console.WriteLine($"Bot npub: {bot.Identity.Npub} (hex: {bot.Identity.PublicKeyHex[..16]}...)");
+Console.WriteLine($"Bot npub: {botId.Npub} (hex: {botId.PublicKeyHex[..16]}...)");
 Console.WriteLine("Type messages (empty line to quit):");
 Console.WriteLine();
 
@@ -34,7 +52,7 @@ while (true)
 
     try
     {
-        await client.SendMessageAsync(bot.Identity.PublicKeyHex, line);
+        await client.SendPrivateMessage(line, botPeer);
     }
     catch (Exception ex)
     {
@@ -43,4 +61,4 @@ while (true)
 }
 
 Console.WriteLine("Exiting...");
-await Task.WhenAll(client.DisconnectAsync(), bot.DisconnectAsync());
+await Task.WhenAll(client.StopAsync(), bot.StopAsync());

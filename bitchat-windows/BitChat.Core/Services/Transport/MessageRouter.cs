@@ -1,18 +1,19 @@
-using BitChat.Core.Services.Transport;
-
 namespace BitChat.Core.Services.Transport;
 
 public sealed class MessageRouter
 {
     private readonly ITransport[] _transports;
     private readonly OutboxQueue _outbox;
+    private readonly object _lock = new();
+    private bool _eventWired;
 
+    public event Action<TransportEvent>? OnTransportEvent;
     public event Action<string>? OnLog;
 
-    public MessageRouter(params ITransport[] transports)
+    public MessageRouter(ITransport[] transports, OutboxQueue? outbox = null)
     {
         _transports = transports;
-        _outbox = new OutboxQueue();
+        _outbox = outbox ?? new OutboxQueue();
         _outbox.OnRetry += OnOutboxRetry;
         _outbox.OnLog += msg => Log(msg);
     }
@@ -20,53 +21,22 @@ public sealed class MessageRouter
     public IReadOnlyList<ITransport> Transports => _transports;
     public OutboxQueue Outbox => _outbox;
 
-    private ITransport? ConnectedTransportFor(PeerID peer)
-    {
-        foreach (var t in _transports)
-        {
-            if (t.IsPeerConnected(peer))
-                return t;
-        }
-        return null;
-    }
-
-    private ITransport? ReachableTransportFor(PeerID peer)
-    {
-        foreach (var t in _transports)
-        {
-            if (t.IsPeerReachable(peer))
-                return t;
-        }
-        return null;
-    }
-
     public async Task SendPrivateMessage(string content, PeerID to, string? messageID = null)
     {
         var msgId = messageID ?? Guid.NewGuid().ToString("N")[..16];
 
-        // Tier 1: Connected + secure session
+        // Tier 1: Connected + secure (currently Nostr is always this tier)
         foreach (var t in _transports)
         {
-            if (t.IsPeerConnected(to) && t.CanDeliverSecurely(to))
+            if (t.CanDeliverSecurely(to))
             {
-                Log($"Route: direct-secure via {t.GetType().Name}");
+                Log($"Route: secure via {t.GetType().Name}");
                 await t.SendPrivateMessage(content, to, msgId);
                 return;
             }
         }
 
-        // Tier 2: Connected but unsecured
-        foreach (var t in _transports)
-        {
-            if (t.IsPeerConnected(to))
-            {
-                Log($"Route: direct-unsecured via {t.GetType().Name}");
-                await t.SendPrivateMessage(content, to, msgId);
-                return;
-            }
-        }
-
-        // Tier 3: Reachable but not connected (e.g. Nostr relay)
+        // Tier 2: Reachable but not connected (e.g. Nostr relay)
         foreach (var t in _transports)
         {
             if (t.IsPeerReachable(to))
@@ -77,7 +47,7 @@ public sealed class MessageRouter
             }
         }
 
-        // Tier 4: No transport available — queue for retry + courier fallback
+        // Tier 3: No transport available — queue for retry
         Log($"Queued: {msgId} for peer {to}");
         _outbox.Enqueue(msgId, to, content);
         _outbox.Start();
@@ -89,9 +59,8 @@ public sealed class MessageRouter
     {
         foreach (var t in _transports)
         {
-            if (t.IsPeerConnected(to) || t.IsPeerReachable(to))
+            if (t.IsPeerReachable(to))
             {
-                var pm = new Protocol.PrivateMessagePacket(msgId, "");
                 await t.SendPrivateMessage("", to, msgId);
                 return;
             }
@@ -100,7 +69,11 @@ public sealed class MessageRouter
 
     public bool IsPeerReachable(PeerID peer)
     {
-        return ReachableTransportFor(peer) != null;
+        foreach (var t in _transports)
+        {
+            if (t.IsPeerReachable(peer)) return true;
+        }
+        return false;
     }
 
     public IReadOnlyList<TransportPeerSnapshot> GetAllPeerSnapshots()
@@ -129,19 +102,24 @@ public sealed class MessageRouter
         }
     }
 
-    public event Action<TransportEvent>? OnTransportEvent;
-
     public void WireEvents()
     {
-        foreach (var t in _transports)
+        lock (_lock)
         {
-            var transport = t;
-            transport.OnEvent += evt =>
+            if (_eventWired) return;
+            _eventWired = true;
+
+            foreach (var t in _transports)
             {
-                if (evt.Type == TransportEventType.PrivateMessageReceived && evt.MessageID != null)
-                    _outbox.MarkDelivered(evt.MessageID);
-                OnTransportEvent?.Invoke(evt);
-            };
+                var transport = t;
+                transport.OnEvent += evt =>
+                {
+                    if (evt.Type == TransportEventType.PrivateMessageReceived && evt.MessageID != null)
+                        _outbox.MarkDelivered(evt.MessageID);
+                    OnTransportEvent?.Invoke(evt);
+                };
+                transport.OnLog += msg => Log(msg);
+            }
         }
     }
 
