@@ -1,20 +1,25 @@
+using BitChat.Core.Services.Courier;
+
 namespace BitChat.Core.Services.Transport;
 
 public sealed class MessageRouter
 {
     private readonly ITransport[] _transports;
     private readonly OutboxQueue _outbox;
+    private readonly CourierStore? _courierStore;
     private readonly object _lock = new();
     private bool _eventWired;
 
     public event Action<TransportEvent>? OnTransportEvent;
     public event Action<string>? OnLog;
 
-    public MessageRouter(ITransport[] transports, OutboxQueue? outbox = null)
+    public MessageRouter(ITransport[] transports, OutboxQueue? outbox = null, CourierStore? courierStore = null)
     {
         _transports = transports;
         _outbox = outbox ?? new OutboxQueue();
+        _courierStore = courierStore;
         _outbox.OnRetry += OnOutboxRetry;
+        _outbox.OnCourierDeposit += OnCourierDeposit;
         _outbox.OnLog += msg => Log(msg);
     }
 
@@ -25,7 +30,6 @@ public sealed class MessageRouter
     {
         var msgId = messageID ?? Guid.NewGuid().ToString("N")[..16];
 
-        // Tier 1: Connected + secure (currently Nostr is always this tier)
         foreach (var t in _transports)
         {
             if (t.CanDeliverSecurely(to))
@@ -36,7 +40,6 @@ public sealed class MessageRouter
             }
         }
 
-        // Tier 2: Reachable but not connected (e.g. Nostr relay)
         foreach (var t in _transports)
         {
             if (t.IsPeerReachable(to))
@@ -47,7 +50,6 @@ public sealed class MessageRouter
             }
         }
 
-        // Tier 3: No transport available — queue for retry
         Log($"Queued: {msgId} for peer {to}");
         _outbox.Enqueue(msgId, to, content);
         _outbox.Start();
@@ -55,15 +57,38 @@ public sealed class MessageRouter
 
     public void MarkDelivered(string messageID) => _outbox.MarkDelivered(messageID);
 
-    private async void OnOutboxRetry(string msgId, PeerID to, byte[]? msgIdBytes)
+    private async void OnOutboxRetry(string msgId, PeerID to, byte[]? msgIdBytes, string content)
     {
         foreach (var t in _transports)
         {
             if (t.IsPeerReachable(to))
             {
-                await t.SendPrivateMessage("", to, msgId);
+                await t.SendPrivateMessage(content, to, msgId);
                 return;
             }
+        }
+    }
+
+    private void OnCourierDeposit(string msgId, PeerID to, byte[] msgIdBytes, string content)
+    {
+        if (_courierStore == null)
+        {
+            Log($"Courier deposit skipped (no store): {msgId}");
+            return;
+        }
+
+        var contentBytes = System.Text.Encoding.UTF8.GetBytes(content);
+        var expiry = (ulong)DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeMilliseconds();
+        var envelope = new CourierEnvelope(msgIdBytes, expiry, contentBytes);
+
+        try
+        {
+            _courierStore.Deposit(envelope, msgIdBytes);
+            Log($"Courier deposited: {msgId}");
+        }
+        catch (Exception ex)
+        {
+            Log($"Courier deposit failed: {ex.Message}");
         }
     }
 

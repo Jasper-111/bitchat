@@ -49,12 +49,7 @@ public partial class App : Application
             }
             else
             {
-                relayUrls = [
-                    "wss://relay.damus.io",
-                    "wss://nos.lol",
-                    "wss://relay.primal.net",
-                    "wss://offchain.pub"
-                ];
+                relayUrls = RelayConfig.Load();
             }
 
             var identity = LoadOrCreateIdentity();

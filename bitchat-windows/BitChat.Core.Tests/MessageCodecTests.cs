@@ -110,7 +110,7 @@ public class MessageCodecTests
     }
 
     [Fact]
-    public void Decode_WrongRecipient_ThrowsException()
+    public void Decode_WrongRecipient_ReturnsNull()
     {
         var alice = NostrIdentity.Generate();
         var bob = NostrIdentity.Generate();
@@ -120,12 +120,12 @@ public class MessageCodecTests
 
         var (envelope, _) = aliceCodec.Encode("Hello Bob", bob.PublicKeyHex);
 
-        Assert.Throws<InvalidOperationException>(() =>
-            aliceCodec.Decode(envelope, carol));
+        var result = aliceCodec.Decode(envelope, carol);
+        Assert.Null(result);
     }
 
     [Fact]
-    public void Decode_TamperedEnvelope_ThrowsException()
+    public void Decode_TamperedEnvelope_ReturnsNull()
     {
         var alice = NostrIdentity.Generate();
         var bob = NostrIdentity.Generate();
@@ -137,8 +137,8 @@ public class MessageCodecTests
 
         envelope.Content = "v2:AAAA" + envelope.Content[7..];
 
-        Assert.Throws<InvalidOperationException>(() =>
-            bobCodec.Decode(envelope, bob));
+        var result = bobCodec.Decode(envelope, bob);
+        Assert.Null(result);
     }
 
     [Fact]

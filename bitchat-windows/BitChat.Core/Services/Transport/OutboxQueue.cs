@@ -10,8 +10,8 @@ public sealed class OutboxQueue : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private Task? _pumpTask;
 
-    public event Action<string, PeerID, byte[]?>? OnRetry;
-    public event Action<string, PeerID, byte[]>? OnCourierDeposit;
+    public event Action<string, PeerID, byte[]?, string>? OnRetry;
+    public event Action<string, PeerID, byte[], string>? OnCourierDeposit;
     public event Action<string>? OnLog;
 
     public int PendingCount => _pending.Count;
@@ -61,14 +61,14 @@ public sealed class OutboxQueue : IDisposable
             {
                 if (_pending.TryGetValue(msg.MessageID, out var p))
                     p.LastAttempt = now;
-                OnRetry?.Invoke(msg.MessageID, msg.To, msg.MessageIdBytes);
+                OnRetry?.Invoke(msg.MessageID, msg.To, msg.MessageIdBytes, msg.Content);
             }
 
             foreach (var msg in toCourier)
             {
                 if (_pending.TryRemove(msg.MessageID, out _))
                 {
-                    OnCourierDeposit?.Invoke(msg.MessageID, msg.To, msg.MessageIdBytes);
+                    OnCourierDeposit?.Invoke(msg.MessageID, msg.To, msg.MessageIdBytes, msg.Content);
                     Log($"Courier deposit: {msg.MessageID}");
                 }
             }

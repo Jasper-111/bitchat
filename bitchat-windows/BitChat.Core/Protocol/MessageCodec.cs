@@ -46,7 +46,17 @@ public class MessageCodec
 
     public DecodedMessage? Decode(NostrEvent giftWrap, NostrIdentity recipientIdentity)
     {
-        var (content, senderPubkey, timestamp) = NostrEnvelope.DecryptPrivateMessage(giftWrap, recipientIdentity);
+        string content;
+        string senderPubkey;
+        int timestamp;
+        try
+        {
+            (content, senderPubkey, timestamp) = NostrEnvelope.DecryptPrivateMessage(giftWrap, recipientIdentity);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Security.Cryptography.CryptographicException)
+        {
+            return null;
+        }
 
         if (!content.StartsWith("bitchat1:"))
             return null;
