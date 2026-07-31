@@ -195,7 +195,7 @@ public class TransportIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task NostrEnvelope_CrossEngineInterop()
+    public void NostrEnvelope_CrossEngineInterop()
     {
         var aliceId = NostrIdentity.Generate();
         var bobId = NostrIdentity.Generate();

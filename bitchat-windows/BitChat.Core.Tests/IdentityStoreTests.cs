@@ -46,7 +46,7 @@ public class IdentityStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task Exists_ReturnsFalse_WhenNoFile()
+    public void Exists_ReturnsFalse_WhenNoFile()
     {
         var store = new FileIdentityStore(_testDir);
         Assert.False(store.Exists());

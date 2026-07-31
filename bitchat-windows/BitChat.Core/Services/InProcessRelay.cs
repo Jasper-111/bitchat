@@ -33,12 +33,12 @@ public class InProcessRelayHub
         _subscriptions.TryRemove((client, subId), out _);
     }
 
-    internal async Task ProcessEvent(InProcessRelayClient publisher, NostrEvent evt, Action<string, bool, string>? onOk)
+    internal Task ProcessEvent(InProcessRelayClient publisher, NostrEvent evt, Action<string, bool, string>? onOk)
     {
         if (_storedEvents.ContainsKey(evt.Id))
         {
             onOk?.Invoke(evt.Id, true, "duplicate: event already stored");
-            return;
+            return Task.CompletedTask;
         }
         _storedEvents[evt.Id] = evt;
         onOk?.Invoke(evt.Id, true, "");
@@ -60,6 +60,7 @@ public class InProcessRelayHub
                 });
             }
         }
+        return Task.CompletedTask;
     }
 
     internal List<NostrEvent> QueryStored(string subId, InProcessRelayClient subscriber, NostrFilter filter)
