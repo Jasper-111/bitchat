@@ -2,16 +2,23 @@
 setlocal
 chcp 65001 >nul 2>&1
 cd /d "%~dp0"
-set "DOTNET=E:\02_asset\.tether\store\dotnet-sdk\dotnet.exe"
+
+:: Detect dotnet from PATH first, fall back to known location
+where dotnet >nul 2>&1
+if %errorlevel% equ 0 (
+    set "DOTNET=dotnet"
+) else (
+    set "DOTNET=E:\02_asset\.tether\store\dotnet-sdk\dotnet.exe"
+)
 
 echo ============================================================
 echo   BitChat - Windows
 echo ============================================================
 echo.
 
-echo   [1] Unified Client + Bot  (single window, in-process)
-echo   [2] Standalone GUI client (public relays)
-echo   [3] Local test: relay + 2 clients (no internet)
+echo   [1] Standalone GUI client (public relays)
+echo   [2] Local test: relay + 2 clients (no internet)
+echo   [3] Run integration tests
 echo   [4] Build all (Release)
 echo   [5] Build all (Debug)
 echo   [6] Clean + rebuild
@@ -23,15 +30,9 @@ if errorlevel 7 exit /b 0
 if errorlevel 6 goto :clean
 if errorlevel 5 goto :debug
 if errorlevel 4 goto :release
-if errorlevel 3 goto :local
-if errorlevel 2 goto :standalone
-if errorlevel 1 goto :unified
-
-:unified
-if not exist "BitChat.Bot\bin\Release\net8.0-windows10.0.19041.0\BitChat.Bot.exe" call :build_rel
-echo [*] Starting Unified Client + Bot...
-start "" "BitChat.Bot\bin\Release\net8.0-windows10.0.19041.0\BitChat.Bot.exe"
-goto :end
+if errorlevel 3 goto :test
+if errorlevel 2 goto :local
+if errorlevel 1 goto :standalone
 
 :standalone
 if not exist "BitChat.App\bin\Release\net8.0-windows10.0.19041.0\BitChat.App.exe" call :build_rel
@@ -49,6 +50,12 @@ echo.
 start "" "BitChat.App\bin\Release\net8.0-windows10.0.19041.0\BitChat.App.exe" --local
 timeout /t 2 /nobreak >nul
 start "" "BitChat.App\bin\Release\net8.0-windows10.0.19041.0\BitChat.App.exe" --local
+goto :end
+
+:test
+echo [*] Running integration tests...
+echo.
+"%DOTNET%" test BitChat.Core.Tests --nologo -v minimal
 goto :end
 
 :release
